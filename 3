@@ -1,0 +1,47 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Excelの読み込み（必要に応じてファイルパスを修正）
+df = pd.read_excel("zutomayo_setlists_analysis.xlsx", sheet_name=None)
+df_videos = df['動画一覧']
+df_setlists = df['ライブ別セットリスト']
+
+# 採用回数を集計
+adoption_counts = df_setlists['タイトル'].value_counts().reset_index()
+adoption_counts.columns = ['タイトル', '採用回数']
+
+# 楽曲タイトルのマッチング
+def match_song_title(video_title, song_titles):
+    for title in song_titles:
+        if title in video_title:
+            return title
+    return None
+
+df_videos['楽曲タイトル'] = df_videos['タイトル'].apply(lambda vt: match_song_title(vt, adoption_counts['タイトル'].tolist()))
+df_merged = pd.merge(df_videos, adoption_counts, how='left', left_on='楽曲タイトル', right_on='タイトル')
+df_merged['採用回数'] = df_merged['採用回数'].fillna(0).astype(int)
+df_merged['投稿日'] = pd.to_datetime(df_merged['投稿日'], format="%Y%m%d")
+df_merged['公開年'] = df_merged['投稿日'].dt.year
+
+# グラフ用のデータ
+correlation_data = df_merged[df_merged['楽曲タイトル'].notna()][['楽曲タイトル', '採用回数', '再生回数', '公開年']]
+
+# グラフ1：再生回数 vs 採用回数
+sns.set(style="whitegrid")
+plt.figure(figsize=(10, 6))
+sns.regplot(data=correlation_data, x='再生回数', y='採用回数', scatter_kws={'s': 60}, line_kws={'color': 'red'})
+plt.title('再生回数と採用回数の相関')
+plt.xlabel('再生回数')
+plt.ylabel('採用回数')
+plt.tight_layout()
+plt.show()
+
+# グラフ2：公開年 vs 採用回数
+plt.figure(figsize=(10, 6))
+sns.boxplot(data=correlation_data, x='公開年', y='採用回数')
+plt.title('公開年と採用回数の関係')
+plt.xlabel('公開年')
+plt.ylabel('採用回数')
+plt.tight_layout()
+plt.show()
