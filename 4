@@ -1,0 +1,32 @@
+import pandas as pd
+# xlsxwriterが必要なのでインストールします
+!pip install xlsxwriter
+
+# 元のExcelファイルの読み込み
+df = pd.read_excel("zutomayo_setlists_analysis.xlsx", sheet_name=None)
+df_videos = df['動画一覧']
+df_setlists = df['ライブ別セットリスト']
+
+# 採用回数を集計
+adoption_counts = df_setlists['タイトル'].value_counts().reset_index()
+adoption_counts.columns = ['タイトル', '採用回数']
+
+# 楽曲タイトルをマッチング
+def match_song_title(video_title, song_titles):
+    for title in song_titles:
+        if title in video_title:
+            return title
+    return None
+
+df_videos['楽曲タイトル'] = df_videos['タイトル'].apply(lambda vt: match_song_title(vt, adoption_counts['タイトル'].tolist()))
+df_merged = pd.merge(df_videos, adoption_counts, how='left', left_on='楽曲タイトル', right_on='タイトル')
+df_merged['採用回数'] = df_merged['採用回数'].fillna(0).astype(int)
+
+# エクセル出力
+with pd.ExcelWriter("zutomayo_setlists_analysis_updated.xlsx", engine='xlsxwriter') as writer:
+    df_videos.to_excel(writer, sheet_name='動画一覧（元）', index=False)
+    df_setlists.to_excel(writer, sheet_name='ライブ別セットリスト', index=False)
+    df_merged.to_excel(writer, sheet_name='動画と採用回数マージ', index=False)
+    adoption_counts.to_excel(writer, sheet_name='採用回数集計', index=False)
+
+print("✅ Excelファイル 'zutomayo_setlists_analysis_updated.xlsx' が出力されました。")
